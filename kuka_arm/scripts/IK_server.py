@@ -68,6 +68,15 @@ def rtod(q):
 def dtor(q):
     return q*np.pi/180.0
 
+def checkInRange(val, low, high, name):
+    if((val >= low) & (val <= high)):
+        return True
+    else:
+        print ("***Out of range {}[{}], ({}, {}) : ".format(name, val, low, high))
+        return False;
+
+
+
 ########################################################################################
 # Defining some global variables to allow easy access without writing self.xxx all the time
 ########################################################################################
@@ -119,6 +128,7 @@ class KukaIKSolver(object):
 
         # # Define Modified DH Transformation matrix
         # #### Homogeneous Transforms
+        # return
         self.T0_1 = createMatrix(alpha0,a0, q1, d1)
         self.T0_1 = self.T0_1.subs(s)
 
@@ -166,7 +176,7 @@ class KukaIKSolver(object):
         self.R3_6_prime = self.R3_6_prime[:3,:3]
         # R3_6_prime = 
         # [-s4s6 +c4c5c6,-s4c6 -s6c4c5,-s5c4]
-        # [        -s5c6,        -s5s6,   c5]
+        # [         s5c6,        -s5s6,   c5]
         # [-s4c5c6 -s6c4, s4s6c5 -c4c6, s4s5]
         # Where, s = sin, c =cos, 4,5,6 = q4,q5,q6
         # So that, -s5c6 = -sin(q5)cos(q6)
@@ -349,7 +359,8 @@ class KukaIKSolver(object):
                 theta2 = np.arccos(float(np.dot(X2_prime, a_dir[0:4]) ))
 
                 Y3_prime = self.T0_3.subs({q1:theta1, q2:theta2, q3: 0}).dot([[0], [1], [0], [0]])
-                theta3 = np.arccos(float(np.dot(Y3_prime[0:3], c_dir[:]))) + beta_prime
+                # theta3 = np.arccos(float(np.dot(Y3_prime[0:3], c_dir[:]))) + beta_prime
+                theta3 = ((pi/2 + beta_prime) - beta).evalf()
 
                 # theta3 = np.arccos(float())
 
@@ -368,12 +379,22 @@ class KukaIKSolver(object):
 
                 # R3_6_prime = 
                 # [-s4s6 +c4c5c6,-s4c6 -s6c4c5,-s5c4]
-                # [        -s5c6,        -s5s6,   c5]
+                # [         s5c6,        -s5s6,   c5]
                 # [-s4c5c6 -s6c4, s4s6c5 -c4c6, s4s5]
                 theta4 = atan2(R3_6[2,2], -R3_6[0, 2]).evalf() # +- np.pi
-                theta6 = atan2(R3_6[1,1], R3_6[1,0]).evalf() # +- np.pi
+                theta6 = atan2(-R3_6[1,1], R3_6[1,0]).evalf() # +- np.pi
                 theta5 = atan2(sqrt(R3_6[0, 2]*R3_6[0, 2] + R3_6[2, 2]*R3_6[2, 2]), R3_6[1, 2]).evalf() # -theta5
 
+                checkInRange(rtod(theta1), -185, 185, "theta1")
+                checkInRange(rtod(theta2),  -45,  85, "theta2")
+                checkInRange(rtod(theta3), -210,  65, "theta3")
+                checkInRange(rtod(theta4), -350, 350, "theta4")
+                checkInRange(rtod(theta5), -125, 125, "theta5")
+                checkInRange(rtod(theta6), -350, 350, "theta6")
+
+
+                print("Performing FK on the computed result for verification")
+                self.performFK([theta1, theta2, theta3, theta4, theta5, theta6])
                 # Now there are 2*2*2 possible solutions,
                 # we find the correct ones that satisfy the complete matrix
 
