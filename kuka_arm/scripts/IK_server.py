@@ -9,6 +9,8 @@
 
 # Author: Harsh Pandya
 
+# IK Implementation : Nitish Puri
+
 # import modules
 import rospy
 import tf
