@@ -11,7 +11,11 @@
 [total-transform-corretion]: ./misc_images/total-transform-corretion.png
 [theta1]: ./misc_images/theta1.png
 [theta23]: ./misc_images/theta23.png
-
+[errors_1]: ./misc_images/errors1.png
+[errors_2]: ./misc_images/errors2.png
+[errors_3]: ./misc_images/errors3.png
+[errors_4]: ./misc_images/errors4.png
+[the-spiral]: ./misc_images/the-spiral.jpg
 
 ### Writeup / README
 
@@ -53,12 +57,18 @@ Also,
 `Link 7` represents the gripper link, which is fixed. It contains left and right grippers(not controlled by IK code.)   
 
 **Link 1 :** `Z0`(0 0 1) is *collinear* to `Z1`(0 0 1), `alpha0 = 0`, `a0 = 0`, `d1 = 0.33(joint1.z) + 0.42(joint2.z) = 0.75`, and `q1` is *unknown*.   
+
 **Link 2 :** `Z1`(0 0 1) is *perpendicular* to `Z2`(0 1 0), so, `alpha1 = -pi/2`, `a1 = 0.35(joint2.x)`, and `d2 = 0` since `X1` intersects `X2` at `O2`. Also, we can see that when joint2 is in *zero* configuration, there is an offset of `-pi/2` from `X1` to `X2`, measured along `Z2`. So, we also need to substitute `q2` with `q2 - pi/2` in the parameter table.   
+
 **Link 3 :**, since `Z2`(0 1 0) is *parallel* to `Z3`(0 1 0), `alpha2 = 0`, `a2 = 1.25(joint3.z)` along `X2`. Also, `X2` and `X3` are collinear, so `d3 = 0`.   
+
 **Link 4 :**, `Z3`(0 1 0) and `Z4`(1 0 0) are *perpendicular*, so `alpha3 = -pi/2` and `a3 = -0.054(joint4.z)`, and `d4 = 0.96(joint4.x) + 0.54(joint5.x) = 1.50`.   
 *Note:* We have choosen O4, O5 and O6 to be co-incident with the Wrist Center(WC). This helps in separating the IK problem into computation of the Wrist Center and then Wrist Orientation.   
+
 **Link 5 :**, `Z4`(1 0 0) and `Z5`(0 1 0) are *perpendicular* and *intersect* at `O5`, so `alpha4 = pi/2` and `a4 = 0`. Also, `d5 = 0`, since `X4` and `X4` are *collinear*.   
+
 **Link 6 :**, `Z5`(0 1 0) and `Z6`(1, 0, 0) are *perpendicular* and *intersect* at `O5`, so `alpha5 = -pi/2` and `a5 = 0`, `d6 = 0`, since `X5` and `X6` are *collinear*.   
+
 **Link 7(Gripper Link) :**, this is a fixed link, with a translation along `Z6`. So, `Z6` and `Zg` are *collinear*, so `alpha6 = 0`, `a6 = 0` and `d6 = 0.193(joint6.x) + 0.11(gripper_joint.x)`. Also, since this is fixed(w.r.t link 6), `q7 = 0`.    
 
 
@@ -358,28 +368,145 @@ And finally,
 `theta6 = atan2(-R3_6[1,1], R3_6[1, 0])`, Since,   
 `-R3_6[1,1]/-R3_6[1, 0] = sin(q5)sin(q6)/sin(q5)cos(q6) = tan(q6)`   
 
-
-
-
-
-
-
-
-
-
-
-
-![alt text][image2]
-
 ### Project Implementation
 
 #### 1. Fill in the `IK_server.py` file with properly commented python code for calculating Inverse Kinematics based on previously performed Kinematic Analysis. Your code must guide the robot to successfully complete 8/10 pick and place cycles. Briefly discuss the code you implemented and your results. 
 
+Most of the code has already been discussed in the previous sections, here i will give an overview of the changes i made to the template `IK_server.py` provided to make things work efficiently.
 
-Here I'll talk about the code, what techniques I used, what worked and why, where the implementation might fail and how I might improve it if I were going to pursue this project further.  
+* My implementation is based on first computing symbolic transforms for each individual link using the parameters provided. This computation can be time consuming to be run every time an IK analysis needs to be  performed. So, first and foremost I crated a class `KukaIKSolver` which does these symbollic simplifications at initialization once.   
+Here is the high level class description:
+```python
+class DummyReq(object):
+    ### Dummy request that works as a proxy for request object received from the simulator 
+    ### This really helped in quick debugging to test the code on known values and validation.
+    ### Testing approach discussed in detail later.
+
+class KukaIKSolver(object):
+    def __init__(self):
+        # Create T0_1,.... T6_G
+        # simplify and compute T0_G
+        # Create correction transformation for gripper link from DH to URDF
+        # Compute symbollic transform for R3_6
+        # temporarily memorize  theta4 and theta6, explained later.
+        pass
+
+    def performFK(self, theta_t):
+        # @param theta_t : list of theta values corresponding to joint angles 1, 2, ..6
+        # Perform Forward kinematics analysis on with the given joint angles by 
+        # substituting theta values in the already computed symbollic transforms to
+
+        # Return the computed end effector position and orientation wrapped in a single object.
+        return DummyReq(EE_pos, EE_orientation)
+
+    def generateRandomReq(self):
+        # generate a random set of angles in the range provided by URDF.
+        # Perform FK on the generated angles and return the generated dummy request to perform IK on.
+        pass
+
+    def handle_calculate_IK2(self, req):
+        # This is based on the handle_calculate_IK provided in the template code.
+        # For every pose in the request
+            # Compute WC
+            # Compute theta1
+            # Solve triangle(O2, O3, WC)
+            # Compute theta2, theta3
+            # Compute R3_6
+            # Compute theta4, theta5 and theta6 using already defined equations.
+            # Check if all the angles are within the range specified in URDF. If not show an error.
+            # Reduce effective range of theta4 and theta6.
+            # Fix theta4 and theta6 based on last computed theta values for these angles.
+            # Perform FK on the computed angles to get the effective EE position
+        # Dump the error in a file to be used later for displaying error graphs.
+        # Send back the IK response.
+```
+Also, there are some helper functions, listing the most important ones   
+```python
+def rot_y(q):
+    # return rotation about Y by q
+def rot_z(q):
+    # return rotation about Z by q
+
+def createMatrix(alpha, a, q, d):
+    # return DH transform between two consecutive links
+
+def createPlot(errors):
+    # plot a bar graph of the provided errors and save to a file named "plots/errors {current_time}.png"
+
+def saveErrors(errors):
+    # save the errors to disk by dumping using `np.savetext()` to a file named
+    # "plots/errors {current_time}"
+```
+
+##### Calculatin errors
+* Errors are computed by calculating the distance between the received EE position and position computed after performing FK on the angles computed by IK. 
+```python
+error = (pg_0 - pos_FK).norm()
+```
+
+Showing the result of some of the plots created by error dumps.
+![er1][errors_1]  
+![er2][errors_2]
+![er3][errors_3]
+![er4][errors_4]
+
+* The above plots can be created by calling a separate script `plotTest.py` available in the same directory 
+```sh
+$ python plotTest.py plots/{filename}
+```
+
+* I had to create a separate script since plotting errors was somehow causing the arm to behave differently than when the errors were not plotted, and also the `IK_server.py` just crashed after completing the seconf request consistently. So,I had to dump the computed errors. Possibly there is some bug in my plotting code, or i need to clean up the `plt` state. Need to figure this one out.
+
+##### Restricting `theta4` and `theta6` values.
+* After the complete implementation  I saw that most of the time the wrist was just rotating about either joint 4 or joint 6.  
+How I understand it is that in the simulation that moves the arm between the poses, it tries to reach all the joint angles as close as possible constrained by some specified joint angular velocity limits. And because of large variations in 4 and 6 joint angles it spends most of its time adjusting these angles and hence is not able to correctly follow the calculated trajectory properly. 
+To fix this, first i reduced the effective range of the angles from (-350, 350) to (-180,180). i.e. wrapped the angle into a smaller range.
+```python
+def reduceEffectiveRange(theta, name):
+    if(theta < -pi ):
+        print ("***reduceEffectiveRange***")
+        print("{} = {}, being changed to {}".format(name, theta, (theta + 2*pi)))
+        return (theta + 2*pi)
+    elif(theta > pi):
+        print ("***reduceEffectiveRange***")
+        print("{} = {}, being changed to {}".format(name, theta, (theta - 2*pi)))
+        return (theta - 2*pi)
+    else:
+        return theta
+
+theta4 = reduceEffectiveRange(theta4, "theta4")
+theta6 = reduceEffectiveRange(theta6, "theta6")
+```
+![spiral][the-spiral]   
+**Fig. 9:** *The spiral shows the complete range of both `theta4` and `theta6` (-350, 350). Also, there are two possible solutions for most of the orientations of the joints. The **bold** spiral shows the effective range after reduction(-180, 180). Once this is done, the rediced angle is compared to the old angle, and corrected so that it doesnt go for a more than 180 rotation.* 
+
+This, did not have any effect on the unnecessary wrist rotation. However, as can be seen in the figure, now i have an opportunity to change the computed angle so that the difference between `new` and `old` is not more than `pi`. 
+```python
+def angleCorrection(theta, old_theta):
+    d = theta - old_theta
+    if d > np.pi:
+        return theta - 2*np.pi
+    elif d < -np.pi:
+        return theta + 2*np.pi
+    else:
+        return theta
 
 
-And just for fun, another example image:
-![alt text][image3]
+theta4 = angleCorrection(theta4, old_theta4)
+theta6 = angleCorrection(theta6, old_theta6)
+
+old_theta4 = theta4
+old_theta6 = theta6
+```
+
+
+
+##### Possible improvements
+* I used tf.transformations library wherever possible.It doesn't work with sympy symbols. It expects numerical values(numpy arrays). However, operations between numpy arrays and sympy Matrices are not implicit. I had to explicitly convert in between the two at various places and that caused a lot of trial and error to see which `type` of matrix should i use. Also, i mixed up `3X3` and `4X4` homogeneous matrices and had explicitly convert between the two to make sure the operations are compatible. These things can definitely be cleaned up, that would also make the code look a lot clean than it looks right now.
+
+* I only show an console error when angles go out of range, but since i have not seen any instance of out of range error(neither in simulation, nor in randomized testing), i did not add any conditions to fix it. I would definitely have done that if i saw fairly regular out of range errors. But it should be handled nonetheless.
+
+* I found some poses (during randomized testing), in which when `O2` and `WC` lie in opposite quadtrants, `theta1`(actual, according to `O2`), and `theta1`(computed, according to `WC`) are opposite to each other. This never happened during simulation with ROS, however, i was able to create a set of `thetas` during randomized testing that led to this situation. I guess this was because my test set was larger than the set of angles possible to get from IK. I was not able to follow this problem anymore due to time limitations, and also this only happened only rarely during randomized tests. 
+
 
 
