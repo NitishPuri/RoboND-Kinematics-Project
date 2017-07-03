@@ -8,6 +8,9 @@
 [annotated_image]: ./misc_images/annotated_image.png
 [urdf_annotation]: ./misc_images/urdf_annotation.png
 [dh-transform-matrix]: ./misc_images/dh-transform-matrix.png
+[dh-transform]: ./misc_images/dh-transform.png
+[dh-convention]: ./misc_images/dh-convention.png
+
 
 ### Writeup / README
 
@@ -60,7 +63,92 @@ Also,
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
 
-![Modified DH Transformation matrix][dh-transform-matrix]
+The following figure represents frame assignment between two links in the Modified DH convention.
+![DH Convention][dh-convention]   
+
+From the above image it is clear thet the total transform between `link(i-1)` and `link(i)` can be thought of as a *rotation* by `alpha(i-1)` along `X(i-1)`, *translation* by `a(i-1)` along `X(i-1)`, *rotation* by `q(i)` along `Z(i)`, and finally *translation* by `d(i)` along `Z(i)`. That is,   
+
+![DH Transform][dh-transform]   
+
+Which, when expanded analytically turns out to be,   
+
+![Modified DH Transformation matrix][dh-transform-matrix]   
+Where, `cx` represents `cos(x)` and `sx` represents `sin(x)`.   
+
+The same can actually be derived programatically if we combine the individual rotation and translation matrices specified above.
+
+Next, we list all the transformation matrices between consecutive links,   
+**Note :** *These transformas are calculated programatically. Details for implementation are in the project implementation section. These can be inspected by the following statements..*   
+```
+>>> from IK_server import * 
+>>> solver = KukaIKSolver()
+>>> dir(solver)
+['R3_6_prime', 'R_corr', 'T0_1', 'T0_2', 'T0_3', 'T0_4', 'T0_5', 'T0_6', 'T0_G',
+ 'T1_2', 'T2_3', 'T3_4', 'T4_5', 'T5_6', 'T6_G', 'T_total', '__class__', '__delattr__', 
+ '__dict__', '__doc__', '__format__', '__getattribute__', '__hash__', '__init__', 
+ '__module__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', 
+ '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'generateRandomReq', 
+ 'handle_calculate_IK2', 'old_theta4', 'old_theta6', 'performFK']
+ >>> solver.T0_1
+ Matrix([
+[cos(q1), -sin(q1), 0,    0],
+[sin(q1),  cos(q1), 0,    0],
+[      0,        0, 1, 0.75],
+[      0,        0, 0,    1]])
+...
+```
+
+Now, the actual transforms, variable in `q`, i.e. joint angles.   
+**T0_1(base_link to link 1):**   
+```
+[cos(q1), -sin(q1), 0,    0]
+[sin(q1),  cos(q1), 0,    0]
+[      0,        0, 1, 0.75]
+[      0,        0, 0,    1]
+``` 
+**T1_2:**   
+```
+[sin(q2),  cos(q2), 0, 0.35]
+[      0,        0, 1,    0]
+[cos(q2), -sin(q2), 0,    0]
+[      0,        0, 0,    1]
+``` 
+**T2_3:**   
+```
+[cos(q3), -sin(q3), 0, 1.25]
+[sin(q3),  cos(q3), 0,    0]
+[      0,        0, 1,    0]
+[      0,        0, 0,    1]
+``` 
+**T3_4:**   
+```
+[ cos(q4), -sin(q4), 0, -0.054]
+[       0,        0, 1,    1.5]
+[-sin(q4), -cos(q4), 0,      0]
+[       0,        0, 0,      1]
+``` 
+**T4_5:**   
+```
+[cos(q5), -sin(q5),  0, 0]
+[      0,        0, -1, 0]
+[sin(q5),  cos(q5),  0, 0]
+[      0,        0,  0, 1]
+``` 
+**T5_6:**   
+```
+[ cos(q6), -sin(q6), 0, 0]
+[       0,        0, 1, 0]
+[-sin(q6), -cos(q6), 0, 0]
+[       0,        0, 0, 1]
+``` 
+**T6_G(link 2 to gripper_link):**   
+```
+[1, 0, 0,     0]
+[0, 1, 0,     0]
+[0, 0, 1, 0.303]
+[0, 0, 0,     1]
+``` 
+
 
 
 Here's | A | Snappy | Table
