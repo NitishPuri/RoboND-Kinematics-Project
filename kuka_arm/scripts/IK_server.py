@@ -102,9 +102,6 @@ def createPlot(errors):
 def saveErrors(errors):
     np.savetxt("plots/errors {}".format(time.ctime()), errors)
 
-
-
-
 ########################################################################################
 # Defining some global variables to allow easy access without writing self.xxx all the time
 ########################################################################################
@@ -284,6 +281,9 @@ class KukaIKSolver(object):
             joint_trajectory_list = []
             position_errors = []
 
+            self.old_theta4 = 0
+            self.old_theta6 = 0
+
             for x in xrange(0, len(req.poses)): 
                 # IK code starts here
                 joint_trajectory_point = JointTrajectoryPoint()
@@ -311,7 +311,7 @@ class KukaIKSolver(object):
                 # R0_g = end-effector(gripper) rotation transformation(4X4)
                 R0_g = tf.transformations.quaternion_matrix(p_quat)
                 R0_g = R0_g[0:3, 0:3]  # Extract the rotation matrix from the transformation
-
+                
                 #### Step 2
                 # Calculate wrist-center position
                 # Displacement of end-effector from wrist-center, 
@@ -349,11 +349,11 @@ class KukaIKSolver(object):
                 # Distance between O3 and O5/WC = (d4^2 + a3^2) in figure
                 C = np.sqrt(s[d4]*s[d4] + s[a3]*s[a3]) 
 
-                # Offset angle between the Y3 axis line(O3, O5)
+                # Offset angle between the Y3 axis line(O3, O5), -q31 in figure
                 beta_prime = atan2(s[a3], s[d4])
 
                 # applying cosine rule `C^2 = A^2 + B^2 -2ABcos(gamma)`
-                # angle(O3, O2, O5)
+                # angle(O3, O2, O5), q21 in figure.
                 gamma = np.arccos(float((A*A + B*B - C*C)/(2*A*B)))
                 
                 # angle(O2, O3, O5)
@@ -382,7 +382,7 @@ class KukaIKSolver(object):
                 X2_prime = self.T0_2.subs({q1:theta1, q2:0}).dot([[1], [0], [0], [0]])
                 theta2 = np.arccos(float(np.dot(X2_prime, a_dir[0:4]) ))
 
-                Y3_prime = self.T0_3.subs({q1:theta1, q2:theta2, q3: 0}).dot([[0], [1], [0], [0]])
+                # Y3_prime = self.T0_3.subs({q1:theta1, q2:theta2, q3: 0}).dot([[0], [1], [0], [0]])
                 # theta3 = np.arccos(float(np.dot(Y3_prime[0:3], c_dir[:]))) + beta_prime
                 theta3 = ((pi/2 + beta_prime) - beta).evalf()
 
@@ -452,32 +452,6 @@ class KukaIKSolver(object):
                 error = (pg_0 - pos_FK).norm()
                 debugLog("              EE Error : {}".format(error))
                 position_errors.append(error)
-
-
-                # sf_arr = [ {q4:theta4, q6:theta6, q5: theta5},
-                #         {q4:theta4, q6:theta6, q5: -theta5},
-                #         {q4:theta4, q6:theta6 + pi, q5: theta5},
-                #         {q4:theta4, q6:theta6 + pi, q5: -theta5},
-                #         {q4:theta4 + pi, q6:theta6, q5: theta5},
-                #         {q4:theta4 + pi, q6:theta6, q5: -theta5},
-                #         {q4:theta4 + pi, q6:theta6 + pi, q5: theta5},
-                #         {q4:theta4 + pi, q6:theta6 + pi, q5: -theta5} ]
-
-                # solution = sf_arr[0]
-
-                # for sf in sf_arr:
-                #     R3_6_prime_val = self.R3_6_prime.subs(sf)
-                #     # print(sf)
-                #     # np.isclose(R3_6_prime_val.tolist(), R3_6.tolist())
-                #     if (R3_6 - R3_6_prime_val).evalf(10, chop = True).is_zero :
-                #         # print("Found solution")
-                #         solution = sf
-                #         break;
-
-                # theta4 = solution[q4]
-                # theta5 = solution[q5]
-                # theta6 = solution[q6]
-
                 
                 # Populate response for the IK request
                 joint_trajectory_point.positions = [theta1, theta2, theta3, theta4, theta5, theta6]
