@@ -77,9 +77,21 @@ Where, `cx` represents `cos(x)` and `sx` represents `sin(x)`.
 
 The same can actually be derived programatically if we combine the individual rotation and translation matrices specified above.
 
-Next, we list all the transformation matrices between consecutive links,   
+Next, we compute all the transformation matrices between consecutive links. This can be done programatically. For this we define the following function,...
+```python
+# Create transformation matrix between two links 
+# according to Modified DH convention with given parameters  
+def createMatrix(alpha, a, q, d):
+    mat =  Matrix([[            cos(q),           -sin(q),           0,             a],
+                   [ sin(q)*cos(alpha), cos(q)*cos(alpha), -sin(alpha), -sin(alpha)*d],
+                   [ sin(q)*sin(alpha), cos(q)*sin(alpha),  cos(alpha),  cos(alpha)*d],
+                   [                 0,                 0,           0,             1]])
+
+    return mat
+```   
+
 **Note :** *These transformas are calculated programatically. Details for implementation are in the project implementation section. These can be inspected by the following statements..*   
-```
+```python
 >>> from IK_server import * 
 >>> solver = KukaIKSolver()
 >>> dir(solver)
@@ -150,13 +162,13 @@ Now, the actual transforms, variable in `q`, i.e. joint angles.
 ``` 
 
 
+Also, total homogenous transform *base_link* to *gripper_link* can be computed by combing all the above transforms. i.e.,   
+`T0_G = T0_1*T1_2*T2_3*T3_4*T4_5*T5_6*T6_G`   
+This gives `T0_G` in the form of variables `q1....6`,   
 
-Here's | A | Snappy | Table
---- | --- | --- | ---
-1 | `highlight` | **bold** | 7.41
-2 | a | b | c
-3 | *italic* | text | 403
-4 | 2 | 3 | abcd
+And, finally, the same total transform can also be computed given the *gripper_link* position and orientation w.r.t. *base_link*.   
+
+
 
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
 
