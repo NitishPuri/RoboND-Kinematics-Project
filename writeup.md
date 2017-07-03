@@ -9,6 +9,7 @@
 [dh-transform]: ./misc_images/dh-transform.png
 [dh-convention]: ./misc_images/dh-convention.png
 [total-transform-corretion]: ./misc_images/total-transform-corretion.png
+[theta1]: ./misc_images/theta1.png
 
 
 ### Writeup / README
@@ -20,7 +21,7 @@ You're reading it!
 ### Kinematic Analysis
 #### 1. Run the forward_kinematics demo and evaluate the kr210.urdf.xacro file to perform kinematic analysis of Kuka KR210 robot and derive its DH parameters.
 
-We can refer to the following images for reference.   
+We can use the following images for reference.   
 ![Annotated image][annotated_image]
 **Fig. 1** : Shows the link frames(coordinate systems) choosen according to Modified DH convention. `O(i)` is the origin for link i frame, and `X(i)`, `Z(i)` are the X and Z axis correspondingly, and Z represents the axis of rotation(translation in case of prismatic joints). Since we are using a right handed coordinate system, `Y(i)` can be calculated accordingly.   
 
@@ -176,7 +177,7 @@ p_quat = [qx, qy, qz, qw] # End effector orientation as a quaternion.
 
 # R0_g = end-effector(gripper) rotation transformation(4X4)
 R0_g = tf.transformations.quaternion_matrix(p_quat)
-D0_g = tf.transformations.translation_matrix(p_quat)
+D0_g = tf.transformations.translation_matrix(pg_0)
 
 T_total = R0_g*D0_g
 ```
@@ -205,7 +206,27 @@ def rot_z(q):
 
 #### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
 
-And here's another image! 
+
+Now th IK part. 
+The  last three joints `q4, q5, q6` don't affect the position Wrist Center(`O5`), hereby refered to as `WC` position.(this can be confirmed by runnning the Forward kinematics demo.) This is very convinient for us in decoupling the IK problem into a position and orienation problem where we can first compute the position of the `WC`(which gives us the first three joint angles `q1, q2, q3`) and orienatation of the wrist , which gives us the last three joints `q4, q5, q6`. Detailed explaination follows,   
+
+* Given End effector position and orienation, we calculate the the wrist center as follows,
+```python
+# rwc_0 = wrist-center position w.r.t. base_link(O_0)
+rwc_0 = pg_0 - (d_g*(R0_g*z_g))
+```
+Where,   
+`pg_0` = End effector position received.   
+`p_quat` = End effector orienataiton received as quaternion.   
+`d_g = s[d7]` = Displacement of end-effector from wrist center(along z).   
+`R0_g = tf.transformations.quaternion_matrix(p_quat)` = End effector rotation matrix.   
+`z_g = rot_z(pi)*rot_y(-pi/2)*([0, 0, 1])` = gripper frame z axis in DH convention.   
+
+So, the above equation displaces `pg_0` by `-d_g` in the z direction.
+
+* Calculate `q1` given `WC`.   
+![Theta 1][theta1]
+
 
 ![alt text][image2]
 
